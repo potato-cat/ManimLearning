@@ -2,74 +2,167 @@ import numpy as np
 
 from manim import *
 from my_ctex import my_ctex
+from scenes.my_movement import MyMoveAlongPath
 
-CARD_WIDTH = 0.4
-CARD_SPACE = 0.6
+CARD_WIDTH = 0.5
+CARD_SPACE = 0.8
 CARD_MAX_HEIGHT = 1
-CARD_MIN_HEIGHT = 0.4
+CARD_MIN_HEIGHT = 0.5
 RUN_TIME = 0.5
 
 
-class ShellSortScene(Scene):
+class SelectSortScene(Scene):
     def construct(self):
         self.title = Tex('选择排序',
                          tex_template=my_ctex(), font_size=48).to_edge(UP, MED_SMALL_BUFF)
         self.add(self.title)
-        self.note1 = Tex(r'由于插入排序只能交换相邻的元素，因此对于大规模的乱序数组插入排序非常慢，大的元素必须从左侧一格一格到最右侧。希尔排序是对插入排序'
-                         r'的改进，其思想是使数组中任意间隔h的元素是有序的，这样，h很大的时候，元素每次移动都能到很远的地方，h从大的值不断减小到1，这样，h很大时，'
-                         r'需要排序的数组长度短，h变小后，数组已经是部分有序的了，这样就可以极大地减少移动的次数了，从而改善插入排序的性能。\\'
-                         r'希尔排序中h的序列可以有多种选择，一般来说各种递增序列构造的h序列，其希尔排序的性能差异并不十分显著，右侧代码中使用的是的$h(n+1)=3\times h(n)+1$'
-                         r'序列。',
-                         tex_template=my_ctex(22), tex_environment='flushleft', font_size=28) \
-            .next_to(self.title, DOWN, MED_LARGE_BUFF).to_edge(LEFT, SMALL_BUFF)
+        self.note1 = Tex(r'选择排序的思想是每次循环找出当前段的最小值然后与左侧值交换位置，首先，找到数组中最小的元素，'
+                         r'然后将它和数组中第一个元素交换位置，再次，在剩下的元素里面找到最小的元素，将它与数组的第二个元素'
+                         r'交换位置。如此往复，直到整个数组排序。其算法如有图所示。',
+                         tex_template=my_ctex(24), tex_environment='flushleft', font_size=28) \
+            .next_to(self.title, DOWN, MED_LARGE_BUFF).to_edge(LEFT, MED_SMALL_BUFF)
         self.play(Create(self.note1))
-        self.code = Code('shell_sort.py', language='python', font_size=20, line_spacing=0.8) \
-            .next_to(self.title, DOWN, MED_LARGE_BUFF).to_edge(RIGHT, SMALL_BUFF)
+        self.code = Code('select_sort.py', language='python', font_size=20, line_spacing=0.5) \
+            .next_to(self.title, DOWN, MED_LARGE_BUFF).to_edge(RIGHT, MED_SMALL_BUFF)
         self.play(Create(self.code))
-        self.wait(2)
-        self.play(Uncreate(self.note1), Uncreate(self.code))
-        self.note2 = Tex('下面是对希尔排序的演示。为了表示希尔排序的思想，演示并没有采用代码清单里面的元素移动方法(即每个元素移动时移动h格，各个子数组交叉运行)，'
-                         '而是对每个子数组进行插入排序，因为数组长度较小，这里h的序列采用的是$[7\quad4\quad1]$。',
-                         tex_template=my_ctex(40), tex_environment='flushleft', font_size=28) \
-            .next_to(self.title, DOWN, MED_LARGE_BUFF).to_edge(LEFT, SMALL_BUFF)
+        self.wait(1)
+        self.note2 = Tex(r'下面是选择排序的动画演示：',
+                         tex_template=my_ctex(24), tex_environment='flushleft', font_size=28) \
+            .next_to(self.note1, DOWN, SMALL_BUFF).to_edge(LEFT, MED_SMALL_BUFF)
         self.play(Create(self.note2))
-        self.array = [54, 67, 22, 92, 79, 73, 30, 60, 30, 16, 41, 99, 86, 10, 48]
-        # self.array = np.linspace(10, 99, 15, dtype=np.int)
-        # self.array[3] = 30
-        # self.array[4] = 30
-        # np.random.shuffle(self.array)
-        self.arrays = [np.copy(self.array)]
+        # , 41, 99, 86, 10, 48
+        self.array = [30, 54, 67, 22, 92, 79, 73, 60, 30, 16]
+
         self.repeat_val = 30
         self.cards = []
         self.pointer = None
-        self.step = None
-        self.cardGroup = self.generateCards(0)
-        self.play(Create(self.cardGroup))
+        self.minText = Tex(r'最小值:',
+                           tex_template=my_ctex(22), tex_environment='flushleft', font_size=28)
+        self.minRect = Rectangle(height=0.4, width=0.8, stroke_width=2)
+        self.minVal = DecimalNumber(0, 0, font_size=28)
+        self.indexText = Tex(r'最小值索引:',
+                             tex_template=my_ctex(22), tex_environment='flushleft', font_size=28)
+        self.indexRect = Rectangle(height=0.4, width=0.8, stroke_width=2)
+        self.indexVal = DecimalNumber(0, 0, font_size=28)
+
+        self.cardGroup = self.generateCards(-3)
+        self.iVal = Tex(r'$i=0$',
+                        tex_template=my_ctex(22), tex_environment='flushleft', font_size=28) \
+            .next_to(self.cardGroup, UP).to_edge(LEFT)
+        self.jVal = Tex(r'$j=0$',
+                        tex_template=my_ctex(22), tex_environment='flushleft', font_size=28) \
+            .next_to(self.iVal, RIGHT)
+        self.legend = self.generateLegend().next_to(self.code, DOWN, MED_SMALL_BUFF).to_edge(RIGHT)
+        self.play(Create(self.cardGroup), Create(self.legend), Create(self.iVal), Create(self.jVal))
         self.wait(1)
         self.sort()
         self.wait(1)
-        self.play(Uncreate(self.note2), Uncreate(self.cardGroup), Uncreate(self.pointer), Uncreate(self.step))
-        self.array = self.arrays[0]
+        self.play(Uncreate(self.note2), Uncreate(self.note1))
         #
-        # note4 = Tex(r'希尔排序是一种不稳定的排序方法，两个33的位置前后发生了变化，这是因为当h较大时，元素移动会跨越较多的格子从而跑到相邻元素的前面，'
-        #             r'插入排序的最差时间复杂度为$O(n^{1.5})$。插入排序的代码量很小，且不需要额外的内存空间，因此在需要直接操作硬件或者在嵌入式系统中时'
-        #             r'可以先使用希尔排序进行排序，如果不满足速度要求再更换其他的更快的排序算法.',
-        #             tex_template=my_ctex(22), tex_environment='flushleft', font_size=28).next_to(self.title, DOWN,
-        #                                                                                          MED_LARGE_BUFF) \
-        #     .to_edge(LEFT, SMALL_BUFF)
-        # self.code = Code('shell_sort.py', language='python', font_size=20, line_spacing=0.8) \
-        #     .next_to(self.title, DOWN, MED_LARGE_BUFF).to_edge(RIGHT, SMALL_BUFF)
-        # self.play(Create(note4), Create(self.code))
-        #
-        # self.wait(2)
+        self.note3 = Tex(r'选择排序时间复杂度为$O(N^2)$，需要$~N^2/2$次比较以及$N$次交换，选择排序的运行时间与输入无关，它不会因为数组'
+                         r'的排序状态而改变比较次数以及移动次数，并且它的数据移动次数是所有排序方式中最少的。另外，选择排序是一种不稳定的排序算法，'
+                         r'排序前后两个30的位置放生了交换，这是因为在发生最小值交换时，会将相同的数从左侧交换到右侧。',
+                         tex_template=my_ctex(24), tex_environment='flushleft', font_size=28) \
+            .next_to(self.title, DOWN, MED_LARGE_BUFF).to_edge(LEFT, MED_SMALL_BUFF)
+        self.play(Create(self.note3))
+        self.wait(3)
+
+    def generateLegend(self, buff=1):
+        legendGroup = VGroup()
+        arrRect = RoundedRectangle(corner_radius=0.2, width=0.5, height=0.5,
+                                   fill_color=BLUE, fill_opacity=1)
+        arrLabel = Text('未排序数组', font_size=15).next_to(arrRect, RIGHT)
+        arrLegend = VGroup(arrRect, arrLabel).to_edge(RIGHT, buff=0).to_edge(UP, buff=buff)
+
+        pivotRect = RoundedRectangle(corner_radius=0.2, width=0.5, height=0.5,
+                                     fill_color=RED, fill_opacity=1).next_to(arrRect, DOWN)
+        pivotLabel = Text('当前最小值', font_size=15).next_to(pivotRect, RIGHT)
+        pivotLegend = VGroup(pivotRect, pivotLabel)
+
+        repeatRect1 = RoundedRectangle(corner_radius=0, width=0.25, height=0.5,
+                                       fill_color=GREEN, fill_opacity=1)
+        repeatRect2 = RoundedRectangle(corner_radius=0, width=0.25, height=0.5,
+                                       fill_color=PINK, fill_opacity=1).next_to(repeatRect1, RIGHT, 0)
+        repeatRect = VGroup(repeatRect1, repeatRect2).next_to(pivotRect, DOWN)
+        repeatLabel = Text('相同值', font_size=15).next_to(repeatRect, RIGHT)
+        repeatLegend = VGroup(repeatRect, repeatLabel)
+
+        legendGroup.add(arrLegend, pivotLegend, repeatLegend)
+
+        return legendGroup
 
     def sort(self):
-        pass
+        p = self.cardGroup.get_critical_point(LEFT + UP)
+        self.minText.next_to(p, UP, LARGE_BUFF, aligned_edge=LEFT)
+        self.minRect.next_to(self.minText, RIGHT, MED_SMALL_BUFF)
+        self.minVal.move_to(self.minRect)
+        self.indexText.next_to(self.minRect, RIGHT, MED_SMALL_BUFF)
+        self.indexRect.next_to(self.indexText, RIGHT, MED_SMALL_BUFF)
+        self.indexVal.move_to(self.indexRect)
+        self.play(Create(self.minText), Create(self.minRect), Create(self.indexText), Create(self.indexRect),
+                  Create(self.minVal), Create(self.indexVal))
+        for i in range(0, len(self.array)):
+            min_i = i
+            tempColor = self.cards[min_i][0].get_color()
+            minVal = DecimalNumber(self.array[min_i], 0, font_size=28).move_to(self.minRect)
+            indexVal = DecimalNumber(min_i, 0, font_size=28).move_to(self.indexRect)
+            iVal = Tex(r'$i=%d$' % i,
+                       tex_template=my_ctex(22), tex_environment='flushleft', font_size=28) \
+                .move_to(self.iVal, LEFT)
+            self.play(ReplacementTransform(self.minVal, minVal, run_time=RUN_TIME),
+                      ReplacementTransform(self.indexVal, indexVal, run_time=RUN_TIME),
+                      self.cards[min_i][0].animate(run_time=RUN_TIME).set_color(RED),
+                      ReplacementTransform(self.iVal, iVal, run_time=RUN_TIME))
+            self.minVal = minVal
+            self.indexVal = indexVal
+            self.iVal = iVal
+            for j in range(i + 1, len(self.array)):
+                p = self.cards[j].get_critical_point(DOWN) - [0, 0.1, 0]
+                jVal = Tex(r'$j=%d$' % j,
+                           tex_template=my_ctex(22), tex_environment='flushleft', font_size=28) \
+                    .move_to(self.jVal, LEFT)
+                if self.pointer == None:
+                    self.pointer = self.generatePointer().move_to(p, UP)
+                    self.add(self.pointer)
+                    self.play(ReplacementTransform(self.jVal, jVal, run_time=0))
+                    self.wait(0.5)
+                elif j == i + 1:
+                    self.pointer.move_to(p, UP)
+                    self.play(ReplacementTransform(self.jVal, jVal, run_time=0))
+                    self.wait(0.5)
+                else:
+                    self.play(self.pointer.animate(run_time=RUN_TIME).move_to(p, UP),
+                              ReplacementTransform(self.jVal, jVal, run_time=RUN_TIME))
+                self.jVal = jVal
+                if self.array[j] < self.array[min_i]:
+                    minVal = DecimalNumber(self.array[j], 0, font_size=28).move_to(self.minRect)
+                    indexVal = DecimalNumber(j, 0, font_size=28).move_to(self.indexRect)
+                    temp = self.cards[j][0].get_color()
+                    self.play(self.cards[j][0].animate.set_color(RED),
+                              self.cards[min_i][0].animate.set_color(tempColor),
+                              ReplacementTransform(self.minVal, minVal),
+                              ReplacementTransform(self.indexVal, indexVal))
+                    self.minVal = minVal
+                    self.indexVal = indexVal
+                    min_i = j
+                    tempColor = temp
+            self.swap(i, min_i)
+
+            self.cards[i][0].set_color(tempColor)
 
     def swap(self, i, j):
+        if i == j:
+            return
         self.array[i], self.array[j] = self.array[j], self.array[i]
-        self.play(self.cards[j].animate(run_time=RUN_TIME).shift([CARD_SPACE * abs(j - i), 0, 0]),
-                  self.cards[i].animate(run_time=RUN_TIME).shift([-CARD_SPACE * abs(j - i), 0, 0]))
+        path1 = Arc(abs(j - i) * CARD_SPACE / 2, PI, -PI)
+        path1.move_to((self.cards[i].get_critical_point(DOWN) + self.cards[j].get_critical_point(DOWN)) / 2,
+                      aligned_edge=DOWN)
+        path2 = Arc(abs(j - i) * CARD_SPACE / 2, 0, PI)
+        path2.move_to((self.cards[i].get_critical_point(DOWN) + self.cards[j].get_critical_point(DOWN)) / 2,
+                      aligned_edge=DOWN)
+        a, b = min(i, j), max(i, j)
+        self.play(MyMoveAlongPath(self.cards[a], path1, aligned_edge=DOWN),
+                  MyMoveAlongPath(self.cards[b], path2, aligned_edge=DOWN))
         self.cards[i], self.cards[j] = self.cards[j], self.cards[i]
 
     def generateCard(self, v, color=BLUE):
@@ -104,10 +197,10 @@ class ShellSortScene(Scene):
             cardGroup.add(card)
         return cardGroup
 
-
 # 传送阵:
 # 1. https://www.bilibili.com/video/BV1434y1C7z9
 # 2. https://www.bilibili.com/video/BV1CL4y1s7DQ
 # 3. https://www.bilibili.com/video/BV1x44y1W7mQ
 # 4. https://www.bilibili.com/video/BV1Za411m7LT
 # 5. https://www.bilibili.com/video/BV1RR4y1K7R9
+# 6. https://www.bilibili.com/video/BV1Gu411X7TH
