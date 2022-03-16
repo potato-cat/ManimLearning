@@ -8,3 +8,4 @@
 - QuickSortScene.py 快速排序
 - ShellSortScene.py 希尔排序
 - TowerOfHanoiScene.py 汉诺塔
+- SelectSortScene.py 选择排序
